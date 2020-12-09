@@ -55,6 +55,7 @@ glm(resolution ~ victim_age + victim_race + victim_sex,
   knitr::kable(digits = 3)
 ```
 
+
 Try this across cities.
 
 ```{r}
@@ -76,6 +77,7 @@ models_results_df =
   select(city_state, term, OR, starts_with("CI"))
 ```
 
+
 ```{r}
 models_results_df %>%
   filter(term == "victim_sexMale") %>%
@@ -84,4 +86,49 @@ models_results_df %>%
   geom_point() +
   geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+### Problem 2
+tidy the birthweight dataset:
+```{r}
+bweight_df = 
+  read_csv("data/birthweight.csv") %>%
+  drop_na() %>%
+  janitor::clean_names() %>%
+  mutate(babysex = as.factor(babysex),
+         malform = as.factor(malform),
+         )
+```
+
+Fit a model:
+
+ I started by the hypothesis that baby's birth weight is associated with a number of predictors including: baby's sex,presence of malformations that could affect weight (0 = absent, 1 = present), average number of cigarettes smoked per day during pregnancy,gestational age in weeks, mother’s age at delivery (years), mother’s pre-pregnancy BMI. The raw linear model only includes coefficients of main effects.
+
+```{r}
+model_fit = lm(bwt ~ babysex + malform + gaweeks + momage + ppbmi, data = bweight_df) %>%
+  broom::tidy()
+```
+
+At the significance level of 0.05, there are sufficient evidence to conclude that malform is not a significant predictor for baby's birthweight. Therefore   malform is excluded from my raw model. Rerun the model with remaining predictors:
+
+```{r}
+model1_fit = lm(bwt ~ babysex + gaweeks + momage + ppbmi, data = bweight_df)
+```
+
+The estimated correlation coefficients all have p-value<0.05, indicating all predictors are significant at alpha=0.05. Now create a ggplot of model residuals against fitted-values.
+
+```{r}
+bweight_df %>%
+  modelr::add_residuals(model1_fit) %>%
+  modelr::add_predictions(model1_fit) %>%
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point()
+```
+
+Build the second using length at birth and gestational age as predictors (main effects only).
+Build the third model using head circumference, length, sex, and all interactions (including the three-way interaction) between these.
+
+```{r}
+model2_fit = lm(bwt ~ blength + gaweeks, data = bweight_df)
+model3_fit = lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = bweight_df)
 ```
