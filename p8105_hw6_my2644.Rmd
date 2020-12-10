@@ -170,3 +170,61 @@ cv_df
 
 It is observed that the RMSE decreases significantly in model 3, which indicates that the accuracy of predictive values increases in model 3. 
 Among all of the 3 models, we can conclude that the model 3 using head circumference, length, sex, and all interactions between these produces the most most accurate predicted values.
+
+###Problem 3
+Import dataset:
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities: 
+- r̂ 2
+- log(β̂ 0∗β̂ 1) 
+
+So we need to build a simple linear regression with tmax as the response and tmin as the predictor, and are interested in the distribution of two quantities estimated from these data.
+
+1) 
+```{r}
+bootstrap_df = 
+  weather_df %>% 
+  modelr::bootstrap(n = 5000) %>% 
+  mutate(
+    models = map(strap, ~lm(tmax ~ tmin, data = .x) ),
+    r_results = map(models, broom::glance),
+    coe_results = map(models, broom::tidy)) %>% 
+  select(-strap, -models)
+```
+
+show plots for r^2 and its 95%CI:
+```{r}
+r_sqr =
+  bootstrap_df %>%
+  unnest(r_results) %>%
+  select(- coe_results)
+
+r_sqr %>%
+  ggplot(aes(x = r.squared)) + 
+  geom_density()
+
+r_sqr %>% 
+  summarize(
+    ci_lower = quantile(r.squared, 0.025), 
+    ci_upper = quantile(r.squared, 0.975)) %>%
+  knitr::kable(digits = 3)
+```
+
+The distribution of estimated r-square is normal, and 95% CI of r-squared is (0.894, 0.927).
+
+
+1). Note: broom::glance() is helpful for extracting r̂ 2 from a fitted regression, and broom::tidy() (with some additional wrangling) should help in computing log(β̂ 0∗β̂ 1).
+
