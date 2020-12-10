@@ -212,7 +212,8 @@ r_sqr =
   unnest(r_results) %>%
   select(- coe_results)
 
-r_sqr %>%
+r_sqr_plot=
+  r_sqr %>%
   ggplot(aes(x = r.squared)) + 
   geom_density()
 
@@ -227,4 +228,48 @@ The distribution of estimated r-square is normal, and 95% CI of r-squared is (0.
 
 
 1). Note: broom::glance() is helpful for extracting r̂ 2 from a fitted regression, and broom::tidy() (with some additional wrangling) should help in computing log(β̂ 0∗β̂ 1).
+
+Calculate estimated coefficients for log(beta0 * beta1) and its 95% CI.
+
+```{r}
+log_est = 
+  bootstrap_df %>%
+  unnest(coe_results) %>%
+  select(- r_results)
+  
+beta_0 = 
+  log_est %>%
+  filter(term == "(Intercept)") %>%
+  rename(beta0 = estimate) %>%
+  select(-term, - p.value, -statistic)
+
+beta_1 = 
+  log_est %>%
+  filter(term == "tmin") %>%
+  rename(beta1 = estimate) %>%
+  select(-term, - p.value, -statistic)
+
+beta_df = 
+  merge(
+    beta_0,
+    beta_1,
+    by = ".id"
+  ) %>%
+  mutate(log_beta = log(beta0 * beta1))
+
+log_beta_plot=
+    beta_df %>%
+  ggplot(aes(x = log_beta)) + 
+  geom_density()
+
+beta_df %>% 
+  summarize(
+    ci_lower = quantile(log_beta, 0.025), 
+    ci_upper = quantile(log_beta, 0.975)) %>%
+  knitr::kable(digits = 3)
+```
+
+The distribution of log(beta0 * beta1) is overall normally distributed but slightly left-skewed, indicating that outliers might be present in the 5000 bootstrap samples. 
+
+The 95% CI of log(beta0 * beta1) is (1.965, 2.060).
 
