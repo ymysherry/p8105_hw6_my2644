@@ -132,3 +132,41 @@ Build the third model using head circumference, length, sex, and all interaction
 model2_fit = lm(bwt ~ blength + gaweeks, data = bweight_df)
 model3_fit = lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = bweight_df)
 ```
+
+Compare the 3 models.
+use mutate + map & map2 to fit models to training data and obtain corresponding RMSEs for the testing data
+```{r}
+cv_df = 
+  crossv_mc(bweight_df, 100) %>%
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+
+cv_df = 
+  cv_df %>% 
+  mutate(
+    model1_fit  = map(train, ~lm(bwt ~ babysex + gaweeks + momage + ppbmi, data = .x)),
+    model2_fit  = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    model3_fit  = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = as_tibble(.x)))) %>% 
+  mutate(
+    rmse_1 = map2_dbl(model1_fit, test, ~rmse(model = .x, data = .y)),
+    rmse_2 = map2_dbl(model2_fit, test, ~rmse(model = .x, data = .y)),
+    rmse_3 = map2_dbl(model3_fit, test, ~rmse(model = .x, data = .y))) %>% 
+
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
+```
+
+This plot shows the distribution of prediction error for each model
+```{r}
+cv_df 
+```
+
+It is observed that the RMSE decreases significantly in model 3, which indicates that the accuracy of predictive values increases in model 3. 
+Among all of the 3 models, we can conclude that the model 3 using head circumference, length, sex, and all interactions between these produces the most most accurate predicted values.
